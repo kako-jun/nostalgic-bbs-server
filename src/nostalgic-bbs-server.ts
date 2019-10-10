@@ -92,25 +92,13 @@ class NostalgicBBS {
   private initServer(): void {
     app.set("trust proxy", true);
 
-    // app.use(
-    //   (
-    //     req: express.Request,
-    //     res: express.Response,
-    //     next: express.NextFunction
-    //   ) => {
-    //     res.header("Content-Type", "application/json");
-    //     res.header("Access-Control-Allow-Origin", "*");
-    //     res.header(
-    //       "Access-Control-Allow-Headers",
-    //       "Origin, X-Requested-With, Content-Type, Accept"
-    //     );
-    //     res.header(
-    //       "Access-Control-Allow-Methods",
-    //       "POST, GET, PUT, DELETE, OPTIONS"
-    //     );
-    //     next();
-    //   }
-    // );
+    app.use((req: express.Request, res: express.Response, next: express.NextFunction) => {
+      res.header("Content-Type", "application/json");
+      res.header("Access-Control-Allow-Origin", "*");
+      res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+      res.header("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS");
+      next();
+    });
 
     app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -186,8 +174,8 @@ class NostalgicBBS {
       res.send(dstIDConfig);
     });
 
-    app.get("/api/admin/all_comments", (req: express.Request, res: express.Response) => {
-      console.log("/api/admin/all_comments called.");
+    app.get("/api/admin/threads_and_comments", (req: express.Request, res: express.Response) => {
+      console.log("/api/admin/threads_and_comments called.");
 
       const host = (req.headers["x-forwarded-for"] as string) || "";
       if (this.isIgnore(host)) {
@@ -209,7 +197,7 @@ class NostalgicBBS {
 
       const threads = this.readJSON(path.resolve(this.rootPath, "json", id, "threads.json")) as Threads;
 
-      const allComments = _.map(threads.thread_IDs, thread_id => {
+      const threadsAndComments = _.map(threads.thread_IDs, thread_id => {
         const thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", thread_id + ".json")) as Thread;
 
         const invisible_num = _.filter(thread.comments, comment => {
@@ -224,11 +212,11 @@ class NostalgicBBS {
         };
       });
 
-      res.send(allComments);
+      res.send(threadsAndComments);
     });
 
-    app.get("/api/all_comments", (req: express.Request, res: express.Response) => {
-      console.log("/api/all_comments called.");
+    app.get("/api/threads_and_comments", (req: express.Request, res: express.Response) => {
+      console.log("/api/threads_and_comments called.");
 
       const host = (req.headers["x-forwarded-for"] as string) || "";
       if (this.isIgnore(host)) {
@@ -244,7 +232,7 @@ class NostalgicBBS {
 
       const threads = this.readJSON(path.resolve(this.rootPath, "json", id, "threads.json")) as Threads;
 
-      const allComments = _.map(threads.thread_IDs, thread_id => {
+      const threadsAndComments = _.map(threads.thread_IDs, thread_id => {
         const thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", thread_id + ".json")) as Thread;
 
         const comments = this.convertCommentsForUser(thread.comments);
@@ -261,7 +249,7 @@ class NostalgicBBS {
         };
       });
 
-      res.send(allComments);
+      res.send(threadsAndComments);
     });
 
     app.get("/api/threads", (req: express.Request, res: express.Response) => {

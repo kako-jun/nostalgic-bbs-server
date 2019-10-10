@@ -41,6 +41,13 @@ var NostalgicBBS = (function () {
     NostalgicBBS.prototype.initServer = function () {
         var _this = this;
         app.set("trust proxy", true);
+        app.use(function (req, res, next) {
+            res.header("Content-Type", "application/json");
+            res.header("Access-Control-Allow-Origin", "*");
+            res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+            res.header("Access-Control-Allow-Methods", "POST, GET, PUT, DELETE, OPTIONS");
+            next();
+        });
         app.use(body_parser_1.default.urlencoded({ extended: true }));
         app.use(body_parser_1.default.json());
         app.get("/api/admin/new", function (req, res) {
@@ -98,8 +105,8 @@ var NostalgicBBS = (function () {
             _this.writeJSON(path_1.default.resolve(_this.rootPath, "json", id, "config.json"), dstIDConfig);
             res.send(dstIDConfig);
         });
-        app.get("/api/admin/all_comments", function (req, res) {
-            console.log("/api/admin/all_comments called.");
+        app.get("/api/admin/threads_and_comments", function (req, res) {
+            console.log("/api/admin/threads_and_comments called.");
             var host = req.headers["x-forwarded-for"] || "";
             if (_this.isIgnore(host)) {
                 return;
@@ -115,7 +122,7 @@ var NostalgicBBS = (function () {
                 return;
             }
             var threads = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads.json"));
-            var allComments = lodash_1.default.map(threads.thread_IDs, function (thread_id) {
+            var threadsAndComments = lodash_1.default.map(threads.thread_IDs, function (thread_id) {
                 var thread = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads", thread_id + ".json"));
                 var invisible_num = lodash_1.default.filter(thread.comments, function (comment) {
                     return comment.visible === false;
@@ -127,10 +134,10 @@ var NostalgicBBS = (function () {
                     invisible_num: invisible_num
                 };
             });
-            res.send(allComments);
+            res.send(threadsAndComments);
         });
-        app.get("/api/all_comments", function (req, res) {
-            console.log("/api/all_comments called.");
+        app.get("/api/threads_and_comments", function (req, res) {
+            console.log("/api/threads_and_comments called.");
             var host = req.headers["x-forwarded-for"] || "";
             if (_this.isIgnore(host)) {
                 return;
@@ -141,7 +148,7 @@ var NostalgicBBS = (function () {
                 return;
             }
             var threads = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads.json"));
-            var allComments = lodash_1.default.map(threads.thread_IDs, function (thread_id) {
+            var threadsAndComments = lodash_1.default.map(threads.thread_IDs, function (thread_id) {
                 var thread = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads", thread_id + ".json"));
                 var comments = _this.convertCommentsForUser(thread.comments);
                 var invisible_num = lodash_1.default.filter(thread.comments, function (comment) {
@@ -154,7 +161,7 @@ var NostalgicBBS = (function () {
                     invisible_num: invisible_num
                 };
             });
-            res.send(allComments);
+            res.send(threadsAndComments);
         });
         app.get("/api/threads", function (req, res) {
             console.log("/api/threads called.");
