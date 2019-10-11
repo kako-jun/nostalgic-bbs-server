@@ -256,6 +256,9 @@ var NostalgicBBS = (function () {
                     nextThreadID = lastThreadID + 1;
                 }
             }
+            if (!_this.exist(path_1.default.resolve(_this.rootPath, "json", id, "threads"))) {
+                fs_1.default.mkdirSync(path_1.default.resolve(_this.rootPath, "json", id, "threads"), { recursive: true });
+            }
             if (_this.exist(path_1.default.resolve(_this.rootPath, "json", id, "threads", nextThreadID + ".json"))) {
                 res.send({ error: "ID '" + nextThreadID + "' already exists." });
                 return;

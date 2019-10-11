@@ -364,6 +364,10 @@ class NostalgicBBS {
         }
       }
 
+      if (!this.exist(path.resolve(this.rootPath, "json", id, "threads"))) {
+        fs.mkdirSync(path.resolve(this.rootPath, "json", id, "threads"), { recursive: true });
+      }
+
       if (this.exist(path.resolve(this.rootPath, "json", id, "threads", nextThreadID + ".json"))) {
         res.send({ error: "ID '" + nextThreadID + "' already exists." });
         return;
