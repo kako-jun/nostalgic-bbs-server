@@ -23,6 +23,7 @@ interface Password {
 interface IDConfig {
   interval_minutes: number;
   comment_moderated: boolean;
+  john_doe: string;
 }
 
 interface Threads {
@@ -63,7 +64,7 @@ class NostalgicBBS {
     this.rootPath = path.resolve(os.homedir(), ".nostalgic-bbs");
     if (!this.exist(path.resolve(this.rootPath, "json"))) {
       fs.mkdirSync(path.resolve(this.rootPath, "json"), { recursive: true });
-      this.createIDFiles("default", "", 0, false);
+      this.createIDFiles("default", "", 0, false, "");
     }
 
     if (!this.exist(path.resolve(this.rootPath, "json", "config.json"))) {
@@ -115,7 +116,7 @@ class NostalgicBBS {
       const id = req.query.id || "default";
       const password = req.query.password || "";
 
-      if (!this.createIDFiles(id, password, 0, false)) {
+      if (!this.createIDFiles(id, password, 0, false, "")) {
         res.send({ error: "ID '" + id + "' already exists." });
         return;
       }
@@ -154,19 +155,27 @@ class NostalgicBBS {
           interval_minutes = Number(req.query.interval_minutes);
         }
       } else {
-        interval_minutes = idConfig.interval_minutes;
+        interval_minutes = idConfig.interval_minutes || 0;
       }
 
       let comment_moderated = false;
       if (req.query.comment_moderated !== undefined) {
         comment_moderated = req.query.comment_moderated === "true" ? true : false;
       } else {
-        comment_moderated = idConfig.comment_moderated;
+        comment_moderated = idConfig.comment_moderated || false;
+      }
+
+      let john_doe = "";
+      if (req.query.john_doe !== undefined) {
+        john_doe = req.query.john_doe;
+      } else {
+        john_doe = idConfig.john_doe || "";
       }
 
       const dstIDConfig: IDConfig = {
         interval_minutes,
-        comment_moderated
+        comment_moderated,
+        john_doe
       };
 
       this.writeJSON(path.resolve(this.rootPath, "json", id, "config.json"), dstIDConfig);
@@ -174,8 +183,8 @@ class NostalgicBBS {
       res.send(dstIDConfig);
     });
 
-    app.get("/api/admin/threads_and_comments", (req: express.Request, res: express.Response) => {
-      console.log("/api/admin/threads_and_comments called.");
+    app.get("/api/admin/threads", (req: express.Request, res: express.Response) => {
+      console.log("/api/admin/threads called.");
 
       const host = (req.headers["x-forwarded-for"] as string) || "";
       if (this.isIgnore(host)) {
@@ -215,8 +224,8 @@ class NostalgicBBS {
       res.send(threadsAndComments);
     });
 
-    app.get("/api/threads_and_comments", (req: express.Request, res: express.Response) => {
-      console.log("/api/threads_and_comments called.");
+    app.get("/api/threads", (req: express.Request, res: express.Response) => {
+      console.log("/api/threads called.");
 
       const host = (req.headers["x-forwarded-for"] as string) || "";
       if (this.isIgnore(host)) {
@@ -250,26 +259,6 @@ class NostalgicBBS {
       });
 
       res.send(threadsAndComments);
-    });
-
-    app.get("/api/threads", (req: express.Request, res: express.Response) => {
-      console.log("/api/threads called.");
-
-      const host = (req.headers["x-forwarded-for"] as string) || "";
-      if (this.isIgnore(host)) {
-        return;
-      }
-
-      const id = req.query.id || "default";
-
-      if (!this.exist(path.resolve(this.rootPath, "json", id))) {
-        res.send({ error: "ID '" + id + "' not found." });
-        return;
-      }
-
-      const threads = this.readJSON(path.resolve(this.rootPath, "json", id, "threads.json")) as Threads;
-
-      res.send(threads);
     });
 
     app.get("/api/threads/new", (req: express.Request, res: express.Response) => {
@@ -322,7 +311,24 @@ class NostalgicBBS {
       threads.thread_IDs.push(nextThreadID);
       this.writeJSON(path.resolve(this.rootPath, "json", id, "threads.json"), threads);
 
-      res.send(threads);
+      const threadsAndComments = _.map(threads.thread_IDs, thread_id => {
+        const thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", thread_id + ".json")) as Thread;
+
+        const comments = this.convertCommentsForUser(thread.comments);
+
+        const invisible_num = _.filter(thread.comments, comment => {
+          return comment.visible === false;
+        }).length;
+
+        return {
+          id: thread_id,
+          title: thread.title,
+          comments,
+          invisible_num
+        };
+      });
+
+      res.send(threadsAndComments);
     });
 
     app.get("/api/admin/threads/remove", (req: express.Request, res: express.Response) => {
@@ -434,7 +440,9 @@ class NostalgicBBS {
         return;
       }
 
-      const name = req.query.name || "";
+      const idConfig = this.readJSON(path.resolve(this.rootPath, "json", id, "config.json")) as IDConfig;
+
+      const name = req.query.name || idConfig.john_doe;
       const text = req.query.text || "";
       const info = req.query.info || "";
 
@@ -496,7 +504,7 @@ class NostalgicBBS {
         return;
       }
 
-      const name = req.query.name || "";
+      const name = req.query.name || idConfig.john_doe;
       const text = req.query.text || "";
       const info = req.query.info || "";
 
@@ -693,7 +701,13 @@ class NostalgicBBS {
     return false;
   }
 
-  private createIDFiles(id: string, password: string, interval_minutes: number, comment_moderated: boolean): boolean {
+  private createIDFiles(
+    id: string,
+    password: string,
+    interval_minutes: number,
+    comment_moderated: boolean,
+    john_doe: string
+  ): boolean {
     const idDirPath = path.resolve(this.rootPath, "json", id);
     if (this.exist(idDirPath)) {
       return false;
@@ -707,7 +721,8 @@ class NostalgicBBS {
 
     this.writeJSON(path.resolve(idDirPath, "config.json"), {
       interval_minutes,
-      comment_moderated
+      comment_moderated,
+      john_doe
     });
 
     this.writeJSON(path.resolve(idDirPath, "threads.json"), { thread_IDs: [] });

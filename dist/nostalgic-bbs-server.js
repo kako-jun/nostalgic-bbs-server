@@ -17,7 +17,7 @@ var NostalgicBBS = (function () {
         this.rootPath = path_1.default.resolve(os_1.default.homedir(), ".nostalgic-bbs");
         if (!this.exist(path_1.default.resolve(this.rootPath, "json"))) {
             fs_1.default.mkdirSync(path_1.default.resolve(this.rootPath, "json"), { recursive: true });
-            this.createIDFiles("default", "", 0, false);
+            this.createIDFiles("default", "", 0, false, "");
         }
         if (!this.exist(path_1.default.resolve(this.rootPath, "json", "config.json"))) {
             this.writeJSON(path_1.default.resolve(this.rootPath, "json", "config.json"), {
@@ -58,7 +58,7 @@ var NostalgicBBS = (function () {
             }
             var id = req.query.id || "default";
             var password = req.query.password || "";
-            if (!_this.createIDFiles(id, password, 0, false)) {
+            if (!_this.createIDFiles(id, password, 0, false, "")) {
                 res.send({ error: "ID '" + id + "' already exists." });
                 return;
             }
@@ -89,24 +89,32 @@ var NostalgicBBS = (function () {
                 }
             }
             else {
-                interval_minutes = idConfig.interval_minutes;
+                interval_minutes = idConfig.interval_minutes || 0;
             }
             var comment_moderated = false;
             if (req.query.comment_moderated !== undefined) {
                 comment_moderated = req.query.comment_moderated === "true" ? true : false;
             }
             else {
-                comment_moderated = idConfig.comment_moderated;
+                comment_moderated = idConfig.comment_moderated || false;
+            }
+            var john_doe = "";
+            if (req.query.john_doe !== undefined) {
+                john_doe = req.query.john_doe;
+            }
+            else {
+                john_doe = idConfig.john_doe || "";
             }
             var dstIDConfig = {
                 interval_minutes: interval_minutes,
-                comment_moderated: comment_moderated
+                comment_moderated: comment_moderated,
+                john_doe: john_doe
             };
             _this.writeJSON(path_1.default.resolve(_this.rootPath, "json", id, "config.json"), dstIDConfig);
             res.send(dstIDConfig);
         });
-        app.get("/api/admin/threads_and_comments", function (req, res) {
-            console.log("/api/admin/threads_and_comments called.");
+        app.get("/api/admin/threads", function (req, res) {
+            console.log("/api/admin/threads called.");
             var host = req.headers["x-forwarded-for"] || "";
             if (_this.isIgnore(host)) {
                 return;
@@ -136,8 +144,8 @@ var NostalgicBBS = (function () {
             });
             res.send(threadsAndComments);
         });
-        app.get("/api/threads_and_comments", function (req, res) {
-            console.log("/api/threads_and_comments called.");
+        app.get("/api/threads", function (req, res) {
+            console.log("/api/threads called.");
             var host = req.headers["x-forwarded-for"] || "";
             if (_this.isIgnore(host)) {
                 return;
@@ -162,20 +170,6 @@ var NostalgicBBS = (function () {
                 };
             });
             res.send(threadsAndComments);
-        });
-        app.get("/api/threads", function (req, res) {
-            console.log("/api/threads called.");
-            var host = req.headers["x-forwarded-for"] || "";
-            if (_this.isIgnore(host)) {
-                return;
-            }
-            var id = req.query.id || "default";
-            if (!_this.exist(path_1.default.resolve(_this.rootPath, "json", id))) {
-                res.send({ error: "ID '" + id + "' not found." });
-                return;
-            }
-            var threads = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads.json"));
-            res.send(threads);
         });
         app.get("/api/threads/new", function (req, res) {
             console.log("/api/threads/new called.");
@@ -216,7 +210,20 @@ var NostalgicBBS = (function () {
             });
             threads.thread_IDs.push(nextThreadID);
             _this.writeJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads.json"), threads);
-            res.send(threads);
+            var threadsAndComments = lodash_1.default.map(threads.thread_IDs, function (thread_id) {
+                var thread = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads", thread_id + ".json"));
+                var comments = _this.convertCommentsForUser(thread.comments);
+                var invisible_num = lodash_1.default.filter(thread.comments, function (comment) {
+                    return comment.visible === false;
+                }).length;
+                return {
+                    id: thread_id,
+                    title: thread.title,
+                    comments: comments,
+                    invisible_num: invisible_num
+                };
+            });
+            res.send(threadsAndComments);
         });
         app.get("/api/admin/threads/remove", function (req, res) {
             console.log("/api/admin/threads/remove called.");
@@ -298,7 +305,8 @@ var NostalgicBBS = (function () {
                 res.send({ error: "ID '" + threadID + "' not found." });
                 return;
             }
-            var name = req.query.name || "";
+            var idConfig = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "config.json"));
+            var name = req.query.name || idConfig.john_doe;
             var text = req.query.text || "";
             var info = req.query.info || "";
             if (name === "" || text === "") {
@@ -346,7 +354,7 @@ var NostalgicBBS = (function () {
                 res.send({ error: "ID '" + threadID + "' not found." });
                 return;
             }
-            var name = req.query.name || "";
+            var name = req.query.name || idConfig.john_doe;
             var text = req.query.text || "";
             var info = req.query.info || "";
             if (name === "" || text === "") {
@@ -498,7 +506,7 @@ var NostalgicBBS = (function () {
         }
         return false;
     };
-    NostalgicBBS.prototype.createIDFiles = function (id, password, interval_minutes, comment_moderated) {
+    NostalgicBBS.prototype.createIDFiles = function (id, password, interval_minutes, comment_moderated, john_doe) {
         var idDirPath = path_1.default.resolve(this.rootPath, "json", id);
         if (this.exist(idDirPath)) {
             return false;
@@ -511,7 +519,8 @@ var NostalgicBBS = (function () {
         });
         this.writeJSON(path_1.default.resolve(idDirPath, "config.json"), {
             interval_minutes: interval_minutes,
-            comment_moderated: comment_moderated
+            comment_moderated: comment_moderated,
+            john_doe: john_doe
         });
         this.writeJSON(path_1.default.resolve(idDirPath, "threads.json"), { thread_IDs: [] });
         this.writeJSON(path_1.default.resolve(idDirPath, "ips.json"), {});
