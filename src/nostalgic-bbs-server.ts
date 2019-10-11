@@ -6,6 +6,7 @@ import path from "path";
 import moment from "moment";
 import express from "express";
 import bodyParser from "body-parser";
+import crypto from "crypto";
 const app = express();
 
 interface AppConfig {
@@ -24,6 +25,11 @@ interface IDConfig {
   interval_minutes: number;
   comment_moderated: boolean;
   john_doe: string;
+  max_threads_num: number;
+  max_comments_num: number;
+  max_thread_title_length: number;
+  max_comment_name_length: number;
+  max_comment_text_length: number;
 }
 
 interface Threads {
@@ -40,6 +46,7 @@ interface AdminComment {
   id: number;
   dt: string;
   name: string;
+  trip: string;
   text: string;
   host: string;
   info: string;
@@ -50,6 +57,7 @@ interface Comment {
   id: number;
   dt: string;
   name: string;
+  trip: string;
   text: string;
 }
 
@@ -64,7 +72,7 @@ class NostalgicBBS {
     this.rootPath = path.resolve(os.homedir(), ".nostalgic-bbs");
     if (!this.exist(path.resolve(this.rootPath, "json"))) {
       fs.mkdirSync(path.resolve(this.rootPath, "json"), { recursive: true });
-      this.createIDFiles("default", "", 0, false, "");
+      this.createIDFiles("default", "", 0, false, "", 42, 1000, 142, 42, 1000);
     }
 
     if (!this.exist(path.resolve(this.rootPath, "json", "config.json"))) {
@@ -116,7 +124,7 @@ class NostalgicBBS {
       const id = req.query.id || "default";
       const password = req.query.password || "";
 
-      if (!this.createIDFiles(id, password, 0, false, "")) {
+      if (!this.createIDFiles(id, password, 0, false, "", 42, 1000, 142, 42, 1000)) {
         res.send({ error: "ID '" + id + "' already exists." });
         return;
       }
@@ -172,10 +180,60 @@ class NostalgicBBS {
         john_doe = idConfig.john_doe || "";
       }
 
+      let max_threads_num = 0;
+      if (req.query.max_threads_num !== undefined) {
+        if (Number(req.query.max_threads_num) >= 0) {
+          max_threads_num = Number(req.query.max_threads_num);
+        }
+      } else {
+        max_threads_num = idConfig.max_threads_num || 0;
+      }
+
+      let max_comments_num = 0;
+      if (req.query.max_comments_num !== undefined) {
+        if (Number(req.query.max_comments_num) >= 0) {
+          max_comments_num = Number(req.query.max_comments_num);
+        }
+      } else {
+        max_comments_num = idConfig.max_comments_num || 0;
+      }
+
+      let max_thread_title_length = 0;
+      if (req.query.max_thread_title_length !== undefined) {
+        if (Number(req.query.max_thread_title_length) >= 0) {
+          max_thread_title_length = Number(req.query.max_thread_title_length);
+        }
+      } else {
+        max_thread_title_length = idConfig.max_thread_title_length || 0;
+      }
+
+      let max_comment_name_length = 0;
+      if (req.query.max_comment_name_length !== undefined) {
+        if (Number(req.query.max_comment_name_length) >= 0) {
+          max_comment_name_length = Number(req.query.max_comment_name_length);
+        }
+      } else {
+        max_comment_name_length = idConfig.max_comment_name_length || 0;
+      }
+
+      let max_comment_text_length = 0;
+      if (req.query.max_comment_text_length !== undefined) {
+        if (Number(req.query.max_comment_text_length) >= 0) {
+          max_comment_text_length = Number(req.query.max_comment_text_length);
+        }
+      } else {
+        max_comment_text_length = idConfig.max_comment_text_length || 0;
+      }
+
       const dstIDConfig: IDConfig = {
         interval_minutes,
         comment_moderated,
-        john_doe
+        john_doe,
+        max_threads_num,
+        max_comments_num,
+        max_thread_title_length,
+        max_comment_name_length,
+        max_comment_text_length
       };
 
       this.writeJSON(path.resolve(this.rootPath, "json", id, "config.json"), dstIDConfig);
@@ -288,7 +346,16 @@ class NostalgicBBS {
         return;
       }
 
+      if (title.length > idConfig.max_thread_title_length) {
+        return;
+      }
+
       const threads = this.readJSON(path.resolve(this.rootPath, "json", id, "threads.json")) as Threads;
+
+      if (threads.thread_IDs.length > idConfig.max_threads_num) {
+        return;
+      }
+
       let nextThreadID = 0;
       if (threads.thread_IDs.length > 0) {
         const lastThreadID = _.max(threads.thread_IDs);
@@ -442,7 +509,7 @@ class NostalgicBBS {
 
       const idConfig = this.readJSON(path.resolve(this.rootPath, "json", id, "config.json")) as IDConfig;
 
-      const name = req.query.name || idConfig.john_doe;
+      let name = req.query.name || idConfig.john_doe;
       const text = req.query.text || "";
       const info = req.query.info || "";
 
@@ -451,12 +518,33 @@ class NostalgicBBS {
         return;
       }
 
+      if (name.length > idConfig.max_comment_name_length) {
+        return;
+      }
+
+      if (text.length > idConfig.max_comment_text_length) {
+        return;
+      }
+
+      let trip = "";
+      if (name.match(/#/)) {
+        const splited = name.split(/#/);
+        name = splited[0];
+        trip = this.generateTrip(name, splited[1]);
+      }
+
       const dt = moment();
 
       let thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", threadID + ".json")) as Thread;
+
+      if (thread.comments.length > idConfig.max_comments_num) {
+        return;
+      }
+
       thread = this.addComment(thread, {
         dt,
         name,
+        trip,
         text,
         host,
         info,
@@ -504,13 +592,28 @@ class NostalgicBBS {
         return;
       }
 
-      const name = req.query.name || idConfig.john_doe;
+      let name = req.query.name || idConfig.john_doe;
       const text = req.query.text || "";
       const info = req.query.info || "";
 
       if (name === "" || text === "") {
         res.send({ error: "Too few parameters." });
         return;
+      }
+
+      if (name.length > idConfig.max_comment_name_length) {
+        return;
+      }
+
+      if (text.length > idConfig.max_comment_text_length) {
+        return;
+      }
+
+      let trip = "";
+      if (name.match(/#/)) {
+        const splited = name.split(/#/);
+        name = splited[0];
+        trip = this.generateTrip(name, splited[1]);
       }
 
       const dt = moment();
@@ -520,9 +623,15 @@ class NostalgicBBS {
       }
 
       let thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", threadID + ".json")) as Thread;
+
+      if (thread.comments.length > idConfig.max_comments_num) {
+        return;
+      }
+
       thread = this.addComment(thread, {
         dt,
         name,
+        trip,
         text,
         host,
         info,
@@ -706,7 +815,12 @@ class NostalgicBBS {
     password: string,
     interval_minutes: number,
     comment_moderated: boolean,
-    john_doe: string
+    john_doe: string,
+    max_threads_num: number,
+    max_comments_num: number,
+    max_thread_title_length: number,
+    max_comment_name_length: number,
+    max_comment_text_length: number
   ): boolean {
     const idDirPath = path.resolve(this.rootPath, "json", id);
     if (this.exist(idDirPath)) {
@@ -722,7 +836,12 @@ class NostalgicBBS {
     this.writeJSON(path.resolve(idDirPath, "config.json"), {
       interval_minutes,
       comment_moderated,
-      john_doe
+      john_doe,
+      max_threads_num,
+      max_comments_num,
+      max_thread_title_length,
+      max_comment_name_length,
+      max_comment_text_length
     });
 
     this.writeJSON(path.resolve(idDirPath, "threads.json"), { thread_IDs: [] });
@@ -768,6 +887,7 @@ class NostalgicBBS {
         id: adminComment.id,
         dt: adminComment.dt,
         name: adminComment.name,
+        trip: adminComment.trip,
         text: adminComment.text
       };
     });
@@ -786,6 +906,7 @@ class NostalgicBBS {
       id: nextCommentID,
       dt: params.dt,
       name: params.name,
+      trip: params.trip,
       text: params.text,
       host: params.host,
       info: params.info,
@@ -813,6 +934,13 @@ class NostalgicBBS {
     });
 
     return thread;
+  }
+
+  private generateTrip(name: string, tripkey: string): string {
+    const cipher = crypto.createCipher("aes-256-cbc", tripkey);
+    cipher.update(name, "utf8", "hex");
+    const cipheredText = cipher.final("hex");
+    return cipheredText.slice(-10);
   }
 }
 

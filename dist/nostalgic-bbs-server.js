@@ -10,6 +10,7 @@ var path_1 = __importDefault(require("path"));
 var moment_1 = __importDefault(require("moment"));
 var express_1 = __importDefault(require("express"));
 var body_parser_1 = __importDefault(require("body-parser"));
+var crypto_1 = __importDefault(require("crypto"));
 var app = express_1.default();
 var NostalgicBBS = (function () {
     function NostalgicBBS(listening_port) {
@@ -17,7 +18,7 @@ var NostalgicBBS = (function () {
         this.rootPath = path_1.default.resolve(os_1.default.homedir(), ".nostalgic-bbs");
         if (!this.exist(path_1.default.resolve(this.rootPath, "json"))) {
             fs_1.default.mkdirSync(path_1.default.resolve(this.rootPath, "json"), { recursive: true });
-            this.createIDFiles("default", "", 0, false, "");
+            this.createIDFiles("default", "", 0, false, "", 42, 1000, 142, 42, 1000);
         }
         if (!this.exist(path_1.default.resolve(this.rootPath, "json", "config.json"))) {
             this.writeJSON(path_1.default.resolve(this.rootPath, "json", "config.json"), {
@@ -58,7 +59,7 @@ var NostalgicBBS = (function () {
             }
             var id = req.query.id || "default";
             var password = req.query.password || "";
-            if (!_this.createIDFiles(id, password, 0, false, "")) {
+            if (!_this.createIDFiles(id, password, 0, false, "", 42, 1000, 142, 42, 1000)) {
                 res.send({ error: "ID '" + id + "' already exists." });
                 return;
             }
@@ -105,10 +106,60 @@ var NostalgicBBS = (function () {
             else {
                 john_doe = idConfig.john_doe || "";
             }
+            var max_threads_num = 0;
+            if (req.query.max_threads_num !== undefined) {
+                if (Number(req.query.max_threads_num) >= 0) {
+                    max_threads_num = Number(req.query.max_threads_num);
+                }
+            }
+            else {
+                max_threads_num = idConfig.max_threads_num || 0;
+            }
+            var max_comments_num = 0;
+            if (req.query.max_comments_num !== undefined) {
+                if (Number(req.query.max_comments_num) >= 0) {
+                    max_comments_num = Number(req.query.max_comments_num);
+                }
+            }
+            else {
+                max_comments_num = idConfig.max_comments_num || 0;
+            }
+            var max_thread_title_length = 0;
+            if (req.query.max_thread_title_length !== undefined) {
+                if (Number(req.query.max_thread_title_length) >= 0) {
+                    max_thread_title_length = Number(req.query.max_thread_title_length);
+                }
+            }
+            else {
+                max_thread_title_length = idConfig.max_thread_title_length || 0;
+            }
+            var max_comment_name_length = 0;
+            if (req.query.max_comment_name_length !== undefined) {
+                if (Number(req.query.max_comment_name_length) >= 0) {
+                    max_comment_name_length = Number(req.query.max_comment_name_length);
+                }
+            }
+            else {
+                max_comment_name_length = idConfig.max_comment_name_length || 0;
+            }
+            var max_comment_text_length = 0;
+            if (req.query.max_comment_text_length !== undefined) {
+                if (Number(req.query.max_comment_text_length) >= 0) {
+                    max_comment_text_length = Number(req.query.max_comment_text_length);
+                }
+            }
+            else {
+                max_comment_text_length = idConfig.max_comment_text_length || 0;
+            }
             var dstIDConfig = {
                 interval_minutes: interval_minutes,
                 comment_moderated: comment_moderated,
-                john_doe: john_doe
+                john_doe: john_doe,
+                max_threads_num: max_threads_num,
+                max_comments_num: max_comments_num,
+                max_thread_title_length: max_thread_title_length,
+                max_comment_name_length: max_comment_name_length,
+                max_comment_text_length: max_comment_text_length
             };
             _this.writeJSON(path_1.default.resolve(_this.rootPath, "json", id, "config.json"), dstIDConfig);
             res.send(dstIDConfig);
@@ -191,7 +242,13 @@ var NostalgicBBS = (function () {
                 res.send({ error: "Too few parameters." });
                 return;
             }
+            if (title.length > idConfig.max_thread_title_length) {
+                return;
+            }
             var threads = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads.json"));
+            if (threads.thread_IDs.length > idConfig.max_threads_num) {
+                return;
+            }
             var nextThreadID = 0;
             if (threads.thread_IDs.length > 0) {
                 var lastThreadID = lodash_1.default.max(threads.thread_IDs);
@@ -313,11 +370,27 @@ var NostalgicBBS = (function () {
                 res.send({ error: "Too few parameters." });
                 return;
             }
+            if (name.length > idConfig.max_comment_name_length) {
+                return;
+            }
+            if (text.length > idConfig.max_comment_text_length) {
+                return;
+            }
+            var trip = "";
+            if (name.match(/#/)) {
+                var splited = name.split(/#/);
+                name = splited[0];
+                trip = _this.generateTrip(name, splited[1]);
+            }
             var dt = moment_1.default();
             var thread = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads", threadID + ".json"));
+            if (thread.comments.length > idConfig.max_comments_num) {
+                return;
+            }
             thread = _this.addComment(thread, {
                 dt: dt,
                 name: name,
+                trip: trip,
                 text: text,
                 host: host,
                 info: info,
@@ -361,15 +434,31 @@ var NostalgicBBS = (function () {
                 res.send({ error: "Too few parameters." });
                 return;
             }
+            if (name.length > idConfig.max_comment_name_length) {
+                return;
+            }
+            if (text.length > idConfig.max_comment_text_length) {
+                return;
+            }
+            var trip = "";
+            if (name.match(/#/)) {
+                var splited = name.split(/#/);
+                name = splited[0];
+                trip = _this.generateTrip(name, splited[1]);
+            }
             var dt = moment_1.default();
             var visible = false;
             if (!idConfig.comment_moderated) {
                 visible = true;
             }
             var thread = _this.readJSON(path_1.default.resolve(_this.rootPath, "json", id, "threads", threadID + ".json"));
+            if (thread.comments.length > idConfig.max_comments_num) {
+                return;
+            }
             thread = _this.addComment(thread, {
                 dt: dt,
                 name: name,
+                trip: trip,
                 text: text,
                 host: host,
                 info: info,
@@ -506,7 +595,7 @@ var NostalgicBBS = (function () {
         }
         return false;
     };
-    NostalgicBBS.prototype.createIDFiles = function (id, password, interval_minutes, comment_moderated, john_doe) {
+    NostalgicBBS.prototype.createIDFiles = function (id, password, interval_minutes, comment_moderated, john_doe, max_threads_num, max_comments_num, max_thread_title_length, max_comment_name_length, max_comment_text_length) {
         var idDirPath = path_1.default.resolve(this.rootPath, "json", id);
         if (this.exist(idDirPath)) {
             return false;
@@ -520,7 +609,12 @@ var NostalgicBBS = (function () {
         this.writeJSON(path_1.default.resolve(idDirPath, "config.json"), {
             interval_minutes: interval_minutes,
             comment_moderated: comment_moderated,
-            john_doe: john_doe
+            john_doe: john_doe,
+            max_threads_num: max_threads_num,
+            max_comments_num: max_comments_num,
+            max_thread_title_length: max_thread_title_length,
+            max_comment_name_length: max_comment_name_length,
+            max_comment_text_length: max_comment_text_length
         });
         this.writeJSON(path_1.default.resolve(idDirPath, "threads.json"), { thread_IDs: [] });
         this.writeJSON(path_1.default.resolve(idDirPath, "ips.json"), {});
@@ -555,6 +649,7 @@ var NostalgicBBS = (function () {
                 id: adminComment.id,
                 dt: adminComment.dt,
                 name: adminComment.name,
+                trip: adminComment.trip,
                 text: adminComment.text
             };
         });
@@ -571,6 +666,7 @@ var NostalgicBBS = (function () {
             id: nextCommentID,
             dt: params.dt,
             name: params.name,
+            trip: params.trip,
             text: params.text,
             host: params.host,
             info: params.info,
@@ -592,6 +688,12 @@ var NostalgicBBS = (function () {
             return comment.id !== commentID;
         });
         return thread;
+    };
+    NostalgicBBS.prototype.generateTrip = function (name, tripkey) {
+        var cipher = crypto_1.default.createCipher("aes-256-cbc", tripkey);
+        cipher.update(name, "utf8", "hex");
+        var cipheredText = cipher.final("hex");
+        return cipheredText.slice(-10);
     };
     return NostalgicBBS;
 }());
