@@ -271,11 +271,23 @@ class NostalgicBBS {
           return comment.visible === false;
         }).length;
 
+        let created_at = "";
+        if (thread.comments.length > 0) {
+          created_at = thread.comments[0].dt;
+        }
+
+        let updated_at = "";
+        if (thread.comments.length > 0) {
+          updated_at = thread.comments[thread.comments.length - 1].dt;
+        }
+
         return {
           id: thread_id,
           title: thread.title,
-          comments: thread.comments,
-          invisible_num
+          comments_num: thread.comments.length,
+          invisible_num,
+          created_at,
+          updated_at
         };
       });
 
