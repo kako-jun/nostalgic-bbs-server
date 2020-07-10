@@ -186,11 +186,21 @@ var NostalgicBBS = (function () {
                 var invisible_num = lodash_1.default.filter(thread.comments, function (comment) {
                     return comment.visible === false;
                 }).length;
+                var created_at = "";
+                if (thread.comments.length > 0) {
+                    created_at = thread.comments[0].dt;
+                }
+                var updated_at = "";
+                if (thread.comments.length > 0) {
+                    updated_at = thread.comments[thread.comments.length - 1].dt;
+                }
                 return {
                     id: thread_id,
                     title: thread.title,
-                    comments: thread.comments,
-                    invisible_num: invisible_num
+                    comments_num: thread.comments.length,
+                    invisible_num: invisible_num,
+                    created_at: created_at,
+                    updated_at: updated_at
                 };
             });
             res.send(threadsAndComments);
@@ -568,7 +578,7 @@ var NostalgicBBS = (function () {
         return json;
     };
     NostalgicBBS.prototype.writeJSON = function (jsonPath, json) {
-        var jsonStr = JSON.stringify(json, null, "  ");
+        var jsonStr = JSON.stringify(json, null, 2);
         fs_1.default.writeFileSync(jsonPath, jsonStr, { encoding: "utf-8" });
     };
     NostalgicBBS.prototype.exist = function (filePath) {
