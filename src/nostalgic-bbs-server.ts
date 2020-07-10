@@ -77,13 +77,13 @@ class NostalgicBBS {
 
     if (!this.exist(path.resolve(this.rootPath, "json", "config.json"))) {
       this.writeJSON(path.resolve(this.rootPath, "json", "config.json"), {
-        listening_port
+        listening_port,
       });
     }
 
     if (!this.exist(path.resolve(this.rootPath, "json", "ignore_list.json"))) {
       this.writeJSON(path.resolve(this.rootPath, "json", "ignore_list.json"), {
-        host_list: []
+        host_list: [],
       });
     }
 
@@ -123,6 +123,9 @@ class NostalgicBBS {
 
       const id = req.query.id || "default";
       const password = req.query.password || "";
+      if (typeof id !== "string" || typeof password !== "string") {
+        return;
+      }
 
       if (!this.createIDFiles(id, password, 0, false, "", 42, 1000, 142, 42, 1000)) {
         res.send({ error: "ID '" + id + "' already exists." });
@@ -144,6 +147,9 @@ class NostalgicBBS {
 
       const id = req.query.id || "default";
       const password = req.query.password || "";
+      if (typeof id !== "string" || typeof password !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -174,7 +180,7 @@ class NostalgicBBS {
       }
 
       let john_doe = "";
-      if (req.query.john_doe !== undefined) {
+      if (typeof req.query.john_doe === "string" && req.query.john_doe !== undefined) {
         john_doe = req.query.john_doe;
       } else {
         john_doe = idConfig.john_doe || "";
@@ -233,7 +239,7 @@ class NostalgicBBS {
         max_comments_num,
         max_thread_title_length,
         max_comment_name_length,
-        max_comment_text_length
+        max_comment_text_length,
       };
 
       this.writeJSON(path.resolve(this.rootPath, "json", id, "config.json"), dstIDConfig);
@@ -251,6 +257,9 @@ class NostalgicBBS {
 
       const id = req.query.id || "default";
       const password = req.query.password || "";
+      if (typeof id !== "string" || typeof password !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -264,10 +273,10 @@ class NostalgicBBS {
 
       const threads = this.readJSON(path.resolve(this.rootPath, "json", id, "threads.json")) as Threads;
 
-      const threadsAndComments = _.map(threads.thread_IDs, thread_id => {
+      const threadsAndComments = _.map(threads.thread_IDs, (thread_id) => {
         const thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", thread_id + ".json")) as Thread;
 
-        const invisible_num = _.filter(thread.comments, comment => {
+        const invisible_num = _.filter(thread.comments, (comment) => {
           return comment.visible === false;
         }).length;
 
@@ -287,7 +296,7 @@ class NostalgicBBS {
           comments_num: thread.comments.length,
           invisible_num,
           created_at,
-          updated_at
+          updated_at,
         };
       });
 
@@ -303,6 +312,9 @@ class NostalgicBBS {
       }
 
       const id = req.query.id || "default";
+      if (typeof id !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -311,12 +323,12 @@ class NostalgicBBS {
 
       const threads = this.readJSON(path.resolve(this.rootPath, "json", id, "threads.json")) as Threads;
 
-      const threadsAndComments = _.map(threads.thread_IDs, thread_id => {
+      const threadsAndComments = _.map(threads.thread_IDs, (thread_id) => {
         const thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", thread_id + ".json")) as Thread;
 
         const comments = this.convertCommentsForUser(thread.comments);
 
-        const invisible_num = _.filter(thread.comments, comment => {
+        const invisible_num = _.filter(thread.comments, (comment) => {
           return comment.visible === false;
         }).length;
 
@@ -324,7 +336,7 @@ class NostalgicBBS {
           id: thread_id,
           title: thread.title,
           comments,
-          invisible_num
+          invisible_num,
         };
       });
 
@@ -340,6 +352,9 @@ class NostalgicBBS {
       }
 
       const id = req.query.id || "default";
+      if (typeof id !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -352,6 +367,9 @@ class NostalgicBBS {
       }
 
       const title = req.query.title || "";
+      if (typeof title !== "string") {
+        return;
+      }
 
       if (title === "") {
         res.send({ error: "Too few parameters." });
@@ -388,18 +406,18 @@ class NostalgicBBS {
       this.writeJSON(path.resolve(this.rootPath, "json", id, "threads", nextThreadID + ".json"), {
         id: nextThreadID,
         title,
-        comments: []
+        comments: [],
       });
 
       threads.thread_IDs.push(nextThreadID);
       this.writeJSON(path.resolve(this.rootPath, "json", id, "threads.json"), threads);
 
-      const threadsAndComments = _.map(threads.thread_IDs, thread_id => {
+      const threadsAndComments = _.map(threads.thread_IDs, (thread_id) => {
         const thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", thread_id + ".json")) as Thread;
 
         const comments = this.convertCommentsForUser(thread.comments);
 
-        const invisible_num = _.filter(thread.comments, comment => {
+        const invisible_num = _.filter(thread.comments, (comment) => {
           return comment.visible === false;
         }).length;
 
@@ -407,7 +425,7 @@ class NostalgicBBS {
           id: thread_id,
           title: thread.title,
           comments,
-          invisible_num
+          invisible_num,
         };
       });
 
@@ -424,6 +442,9 @@ class NostalgicBBS {
 
       const id = req.query.id || "default";
       const password = req.query.password || "";
+      if (typeof id !== "string" || typeof password !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -454,7 +475,7 @@ class NostalgicBBS {
         return;
       }
 
-      threads.thread_IDs = _.filter(threads.thread_IDs, thread_id => {
+      threads.thread_IDs = _.filter(threads.thread_IDs, (thread_id) => {
         return thread_id !== threadID;
       });
 
@@ -472,6 +493,9 @@ class NostalgicBBS {
       }
 
       const id = req.query.id || "default";
+      if (typeof id !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -489,7 +513,7 @@ class NostalgicBBS {
 
       const comments = this.convertCommentsForUser(thread.comments);
 
-      const invisible_num = _.filter(thread.comments, comment => {
+      const invisible_num = _.filter(thread.comments, (comment) => {
         return comment.visible === false;
       }).length;
 
@@ -497,7 +521,7 @@ class NostalgicBBS {
         id: thread.id,
         title: thread.title,
         comments,
-        invisible_num
+        invisible_num,
       });
     });
 
@@ -510,6 +534,9 @@ class NostalgicBBS {
       }
 
       const id = req.query.id || "default";
+      if (typeof id !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -528,6 +555,9 @@ class NostalgicBBS {
       let name = req.query.name || idConfig.john_doe;
       const text = req.query.text || "";
       const info = req.query.info || "";
+      if (typeof name !== "string" || typeof text !== "string" || typeof info !== "string") {
+        return;
+      }
 
       if (name === "" || text === "") {
         res.send({ error: "Too few parameters." });
@@ -564,12 +594,12 @@ class NostalgicBBS {
         text,
         host,
         info,
-        visible: true
+        visible: true,
       });
 
       const comments = this.convertCommentsForUser(thread.comments);
 
-      const invisible_num = _.filter(thread.comments, comment => {
+      const invisible_num = _.filter(thread.comments, (comment) => {
         return comment.visible === false;
       }).length;
 
@@ -577,7 +607,7 @@ class NostalgicBBS {
         id: thread.id,
         title: thread.title,
         comments,
-        invisible_num
+        invisible_num,
       });
     });
 
@@ -590,6 +620,9 @@ class NostalgicBBS {
       }
 
       const id = req.query.id || "default";
+      if (typeof id !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -611,6 +644,9 @@ class NostalgicBBS {
       let name = req.query.name || idConfig.john_doe;
       const text = req.query.text || "";
       const info = req.query.info || "";
+      if (typeof name !== "string" || typeof text !== "string" || typeof info !== "string") {
+        return;
+      }
 
       if (name === "" || text === "") {
         res.send({ error: "Too few parameters." });
@@ -651,14 +687,14 @@ class NostalgicBBS {
         text,
         host,
         info,
-        visible
+        visible,
       });
 
       this.writeJSON(path.resolve(this.rootPath, "json", id, "threads", threadID + ".json"), thread);
 
       const comments = this.convertCommentsForUser(thread.comments);
 
-      const invisible_num = _.filter(thread.comments, comment => {
+      const invisible_num = _.filter(thread.comments, (comment) => {
         return comment.visible === false;
       }).length;
 
@@ -666,7 +702,7 @@ class NostalgicBBS {
         id: thread.id,
         title: thread.title,
         comments,
-        invisible_num
+        invisible_num,
       });
     });
 
@@ -680,6 +716,9 @@ class NostalgicBBS {
 
       const id = req.query.id || "default";
       const password = req.query.password || "";
+      if (typeof id !== "string" || typeof password !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -708,14 +747,14 @@ class NostalgicBBS {
 
       let thread = this.readJSON(path.resolve(this.rootPath, "json", id, "threads", threadID + ".json")) as Thread;
       thread = this.updateComment(thread, commentID, {
-        visible
+        visible,
       });
 
       this.writeJSON(path.resolve(this.rootPath, "json", id, "threads", threadID + ".json"), thread);
 
       const comments = this.convertCommentsForUser(thread.comments);
 
-      const invisible_num = _.filter(thread.comments, comment => {
+      const invisible_num = _.filter(thread.comments, (comment) => {
         return comment.visible === false;
       }).length;
 
@@ -723,7 +762,7 @@ class NostalgicBBS {
         id: thread.id,
         title: thread.title,
         comments,
-        invisible_num
+        invisible_num,
       });
     });
 
@@ -737,6 +776,9 @@ class NostalgicBBS {
 
       const id = req.query.id || "default";
       const password = req.query.password || "";
+      if (typeof id !== "string" || typeof password !== "string") {
+        return;
+      }
 
       if (!this.exist(path.resolve(this.rootPath, "json", id))) {
         res.send({ error: "ID '" + id + "' not found." });
@@ -769,7 +811,7 @@ class NostalgicBBS {
 
       const comments = this.convertCommentsForUser(thread.comments);
 
-      const invisible_num = _.filter(thread.comments, comment => {
+      const invisible_num = _.filter(thread.comments, (comment) => {
         return comment.visible === false;
       }).length;
 
@@ -777,7 +819,7 @@ class NostalgicBBS {
         id: thread.id,
         title: thread.title,
         comments,
-        invisible_num
+        invisible_num,
       });
     });
   }
@@ -815,7 +857,7 @@ class NostalgicBBS {
 
     const ignoreList = this.readJSON(path.resolve(this.rootPath, "json", "ignore_list.json")) as IgnoreList;
 
-    const found = _.find(ignoreList.host_list, h => {
+    const found = _.find(ignoreList.host_list, (h) => {
       return h === host;
     });
 
@@ -846,7 +888,7 @@ class NostalgicBBS {
     }
 
     this.writeJSON(path.resolve(idDirPath, "password.json"), {
-      password
+      password,
     });
 
     this.writeJSON(path.resolve(idDirPath, "config.json"), {
@@ -857,7 +899,7 @@ class NostalgicBBS {
       max_comments_num,
       max_thread_title_length,
       max_comment_name_length,
-      max_comment_text_length
+      max_comment_text_length,
     });
 
     this.writeJSON(path.resolve(idDirPath, "threads.json"), { thread_IDs: [] });
@@ -894,17 +936,17 @@ class NostalgicBBS {
   }
 
   private convertCommentsForUser(adminComments: Array<AdminComment>): Array<Comment> {
-    const visibleComments = _.filter(adminComments, adminComment => {
+    const visibleComments = _.filter(adminComments, (adminComment) => {
       return adminComment.visible;
     });
 
-    return _.map(visibleComments, adminComment => {
+    return _.map(visibleComments, (adminComment) => {
       return {
         id: adminComment.id,
         dt: adminComment.dt,
         name: adminComment.name,
         trip: adminComment.trip,
-        text: adminComment.text
+        text: adminComment.text,
       };
     });
   }
@@ -926,14 +968,14 @@ class NostalgicBBS {
       text: params.text,
       host: params.host,
       info: params.info,
-      visible: params.visible
+      visible: params.visible,
     });
 
     return thread;
   }
 
   private updateComment(thread: Thread, commentID: number, params: any): Thread {
-    const found = _.find(thread.comments, comment => {
+    const found = _.find(thread.comments, (comment) => {
       return comment.id === commentID;
     });
 
@@ -945,7 +987,7 @@ class NostalgicBBS {
   }
 
   private removeComment(thread: Thread, commentID: number): Thread {
-    thread.comments = _.filter(thread.comments, comment => {
+    thread.comments = _.filter(thread.comments, (comment) => {
       return comment.id !== commentID;
     });
 
